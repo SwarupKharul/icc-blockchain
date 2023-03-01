@@ -9,7 +9,6 @@ contract ICC is ERC721 {
     mapping(address => uint256) public nftTokenBalances;
     mapping(address => uint256) public TokenBalances;
 
-    mapping(address => bool) public whitelist;
     uint256 public tokenId;
 
     constructor() ERC721("TicketingProtocol", "TICKET") {
@@ -17,11 +16,10 @@ contract ICC is ERC721 {
         tokenCount = 0;
     }
 
-    function buyTicket(uint256 price, uint256 numberofTickets)
+    function buyTicket(uint256 price)
         external
         payable
     {
-        require(!whitelist[msg.sender], "You have already bought a ticket");
         require(tokenCount + price < TOTAL_TOKEN_SUPPLY, "No tokens left");
         // require(msg.value == price, "Incorrect payment amount");
 
@@ -31,8 +29,6 @@ contract ICC is ERC721 {
         tokenId++;
         _mint(msg.sender, tokenId);
         nftTokenBalances[msg.sender] = price;
-
-        whitelist[msg.sender] = true;
     }
 
     function buyTokens(uint256 price) external payable {
