@@ -2,45 +2,57 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "./MyERC20Token.sol";
 
-contract ICC is ERC721 {
+contract TicketTest31 is ERC721 {
     uint256 public constant TOTAL_TOKEN_SUPPLY = 10000;
     uint256 public tokenCount;
     mapping(address => uint256) public nftTokenBalances;
     mapping(address => uint256) public TokenBalances;
 
     uint256 public tokenId;
+    MyERC20Token public token;
+    address public owner;
 
-    constructor() ERC721("TicketingProtocol", "TICKET") {
+    constructor(address tokenAddress) ERC721("TicketingProtocol", "TICKET") {
         tokenId = 0;
         tokenCount = 0;
+        token = MyERC20Token(tokenAddress);
+        owner = msg.sender;
     }
 
-    function buyTicket(uint256 price, uint256 numberofTickets)
-        external
-        payable
-    {
-        require(tokenCount + price < TOTAL_TOKEN_SUPPLY, "No tokens left");
-        // require(msg.value == price, "Incorrect payment amount");
+    function tokenBalance(address addr) public view returns (uint256) {
+        return token.balanceOf(addr);
+    }
 
-        tokenCount += price;
-        (bool success, ) = msg.sender.call{value: msg.value}("");
-        require(success, "Token transfer to buyer failed.");
+    function tokenBalanceContract() public view returns (uint256) {
+        return token.balanceOf(address(token));
+    }
+
+    function buyTicket(uint256 price) external {
+        require(tokenCount + price < TOTAL_TOKEN_SUPPLY, "No tokens left");
+
+        uint256 tokenPrice = 1 ether;
+        uint256 tokensToTransfer = price * tokenPrice;
+
+        tokenCount += tokensToTransfer;
         tokenId++;
         _mint(msg.sender, tokenId);
-        nftTokenBalances[msg.sender] = price;
+        nftTokenBalances[msg.sender] = tokensToTransfer;
 
+        token.transfer(msg.sender, tokensToTransfer);
     }
 
-    function buyTokens(uint256 price) external payable {
-        // require(msg.value > 0, "Insufficient funds sent");
-        require(tokenCount + price < TOTAL_TOKEN_SUPPLY, "No tokens left");
-        tokenCount += price;
+    function buyTokens(uint256 amount) external {
+        require(amount > 0, "Amount must be greater than zero");
+        require(tokenCount + amount < TOTAL_TOKEN_SUPPLY, "No tokens left");
 
-        TokenBalances[msg.sender] += price;
+        tokenCount += amount;
+        token.transferFrom(msg.sender, address(this), amount);
+        TokenBalances[msg.sender] += amount;
     }
 
-    function transferToProtocol(address to, uint256 tokenId) public {
+    function transferToProtocolWall(address to, uint256 tokenId) public {
         require(
             _isApprovedOrOwner(msg.sender, tokenId),
             "You are not the owner of this token"
@@ -48,6 +60,7 @@ contract ICC is ERC721 {
 
         uint256 unusedTokens = nftTokenBalances[msg.sender];
         TokenBalances[to] += unusedTokens;
+        nftTokenBalances[msg.sender] = 0;
     }
 
     function buyWithTokens(address seller, uint256 amount) public {
@@ -59,13 +72,14 @@ contract ICC is ERC721 {
 
         TokenBalances[msg.sender] -= amount;
         TokenBalances[seller] += amount;
+        token.transfer(seller, amount);
     }
 
-    function withdraw() external payable {
+    function withdraw() external {
         uint256 amount = TokenBalances[msg.sender];
         require(amount > 0, "Insufficient balance");
         tokenCount -= amount;
         TokenBalances[msg.sender] = 0;
-        payable(msg.sender).transfer(amount);
+        token.transfer(msg.sender, amount);
     }
 }
